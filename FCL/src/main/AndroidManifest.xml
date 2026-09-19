@@ -145,6 +145,11 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <service
+            android:name="com.tungsten.fcl.ai.AiControllerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <service
             android:name=".terracotta.TerracottaVPNService"
             android:exported="true"
             android:foregroundServiceType="connectedDevice|dataSync"

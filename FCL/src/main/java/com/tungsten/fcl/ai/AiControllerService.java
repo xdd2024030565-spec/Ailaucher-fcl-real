@@ -13,19 +13,21 @@ import androidx.core.app.NotificationCompat;
 
 import com.tungsten.fcl.R;
 import com.tungsten.fcl.activity.MainActivity;
+import com.tungsten.fcl.ai.controller.DecisionEngine;
+import com.tungsten.fcl.ai.controller.GameApiClient;
+import com.tungsten.fcl.ai.controller.LlmClient;
 import com.tungsten.fclcore.util.Logging;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.logging.Level;
 
 /**
  * AI 控制器后台服务 —— AI Minecraft Launcher 集成层
  *
  * 连接游戏内 AI Bridge Mod 的 HTTP 接口（默认 http://127.0.0.1:25580），
- * 循环获取游戏状态，后续版本接入 LLM 决策引擎执行动作。
+ * 通过 LLM 决策循环自动控制游戏角色（AI 玩 Minecraft）。
+ *
+ * 架构对齐原 AI-Minecraft-Launcher：
+ * GameApiClient (游戏接口) + LlmClient (LLM) + DecisionEngine (决策循环)。
  */
 public class AiControllerService extends Service {
 
@@ -35,10 +37,18 @@ public class AiControllerService extends Service {
     /** 控制器运行状态（供 UI 查询） */
     public static volatile boolean running = false;
 
+    /** 最近一次决策结果（供 UI 展示） */
+    public static volatile String lastDecision = "";
+
     private static final String CHANNEL_ID = "fcl_ai_controller";
     private static final int NOTIFICATION_ID = 10901;
 
     private Thread worker;
+
+    private GameApiClient gameApi;
+    private LlmClient llmClient;
+    private DecisionEngine engine;
+    private String lastSignature = "";
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -73,19 +83,24 @@ public class AiControllerService extends Service {
     }
 
     /**
-     * 控制器主循环：查询游戏状态
+     * 控制器主循环：LLM 决策 → 执行动作 → 记忆
      */
     private void loop() {
+        Logging.LOG.info("AI 控制器已启动");
         while (running) {
+            AiConfig config = AiConfig.getInstance(this);
             try {
-                AiConfig config = AiConfig.getInstance(this);
-                int port = config.getBridgePort();
-                String state = httpGet("http://127.0.0.1:" + port + "/api/state", 3000);
-                if (state != null) {
-                    Logging.LOG.fine("AI controller state: " + state);
+                ensureEngine(config);
+                if (config.hasApiKey()) {
+                    DecisionEngine.DecisionResult result = engine.runDecisionCycle();
+                    lastDecision = result.toString();
+                    Logging.LOG.fine("AI 决策: " + result);
+                } else if (gameApi.isConnected()) {
+                    lastDecision = "AI Bridge 在线，请在 AI 页面配置 API Key";
                 }
-            } catch (Exception ignored) {
-                // 游戏未启动或 Bridge 未就绪，静默重试
+            } catch (Exception e) {
+                lastDecision = "循环异常: " + e.getMessage();
+                Logging.LOG.log(Level.FINE, "AI 决策循环异常", e);
             }
             try {
                 Thread.sleep(AiConfig.getInstance(this).getCycleIntervalMs());
@@ -94,31 +109,30 @@ public class AiControllerService extends Service {
             }
         }
         running = false;
+        Logging.LOG.info("AI 控制器已停止");
     }
 
-    private String httpGet(String urlStr, int timeoutMs) {
-        HttpURLConnection conn = null;
-        try {
-            conn = (HttpURLConnection) new URL(urlStr).openConnection();
-            conn.setConnectTimeout(timeoutMs);
-            conn.setReadTimeout(timeoutMs);
-            conn.setRequestMethod("GET");
-            try (InputStream is = conn.getInputStream()) {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                byte[] buf = new byte[4096];
-                int n;
-                while ((n = is.read(buf)) != -1) {
-                    bos.write(buf, 0, n);
-                }
-                return new String(bos.toByteArray(), "UTF-8");
-            }
-        } catch (Exception e) {
-            return null;
-        } finally {
-            if (conn != null) {
-                conn.disconnect();
-            }
+    /**
+     * 按配置构建/重建决策引擎（配置变化时自动重建）
+     */
+    private void ensureEngine(AiConfig config) {
+        String signature = config.getApiKey() + "|" + config.getModel() + "|"
+                + config.getBaseUrl() + "|" + config.getBridgePort();
+
+        if (engine != null && signature.equals(lastSignature)) {
+            engine.setCurrentTask(config.getTask());
+            engine.setVisualMode(config.isVisualMode());
+            engine.setMemoryEnabled(config.isMemoryEnabled());
+            return;
         }
+
+        gameApi = new GameApiClient(config.getBridgePort());
+        llmClient = new LlmClient(config.getApiKey(), config.getModel(), config.getBaseUrl());
+        engine = new DecisionEngine(gameApi, llmClient);
+        engine.setCurrentTask(config.getTask());
+        engine.setVisualMode(config.isVisualMode());
+        engine.setMemoryEnabled(config.isMemoryEnabled());
+        lastSignature = signature;
     }
 
     private void startForegroundNotice() {
@@ -135,7 +149,7 @@ public class AiControllerService extends Service {
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("AI 控制器运行中")
-                .setContentText("正在连接 Minecraft AI Bridge")
+                .setContentText("正在控制 Minecraft 角色")
                 .setSmallIcon(R.drawable.ic_ai)
                 .setContentIntent(pi)
                 .setOngoing(true)

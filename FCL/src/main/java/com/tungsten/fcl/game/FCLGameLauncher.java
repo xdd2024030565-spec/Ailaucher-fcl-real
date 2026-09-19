@@ -23,6 +23,7 @@ import com.mio.data.Renderer;
 import com.mio.manager.RendererManager;
 import com.mio.util.LauncherUtilKt;
 import com.tungsten.fcl.R;
+import com.tungsten.fcl.ai.AiBridgeInstaller;
 import com.tungsten.fcl.setting.GameOption;
 import com.tungsten.fcl.util.RuntimeUtils;
 import com.tungsten.fclauncher.bridge.FCLBridge;
@@ -171,6 +172,8 @@ public final class FCLGameLauncher extends DefaultLauncher {
     @Override
     public FCLBridge launch() throws IOException, InterruptedException {
         generateOptionsTxt();
+        // AI Minecraft Launcher 集成层：启动前自动注入 AI Bridge Mod
+        AiBridgeInstaller.installIfEnabled(context, repository, version);
         // Sodium
         modifyIfConfigDetected("sodium-mixins.properties", "", "mixin.features.chunk_rendering=false", false, RendererManager.RENDERER_GL4ES, RendererManager.RENDERER_VGPU);
         // Rubidium

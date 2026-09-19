@@ -25,8 +25,10 @@ public class AiBridgeInstaller {
 
     /** APK 内资产路径 */
     public static final String ASSET_PATH = "ai/ai-bridge.jar";
-x20   /** mods 目录下的目标文件名 */
+    /** mods 目录下的目标文件名 */
     public static final String BRIDGE_JAR_NAME = "ai-bridge.jar";
+    /** 端口文件名（与 Bridge Mod 约定，用于多实例区分端口） */
+    public static final String PORT_FILE_NAME = "ai_bridge_port.txt";
 
     /**
      * 按配置安装 AI Bridge Mod（若开关关闭则跳过）
@@ -48,7 +50,9 @@ x20   /** mods 目录下的目标文件名 */
     public static boolean install(Context context, GameRepository repository, Version version) {
         try {
             Path modsPath = repository.getModsDirectory(version.getId());
-            if (modsPath == null) return false;
+            if (modsPath == null) {
+                return false;
+            }
 
             File modsDir = modsPath.toFile();
             if (!modsDir.exists() && !modsDir.mkdirs()) {
@@ -86,7 +90,9 @@ x20   /** mods 目录下的目标文件名 */
     public static boolean hasBridge(GameRepository repository, Version version) {
         try {
             Path modsPath = repository.getModsDirectory(version.getId());
-            if (modsPath == null) return false;
+            if (modsPath == null) {
+                return false;
+            }
             File dest = new File(modsPath.toFile(), BRIDGE_JAR_NAME);
             return dest.exists() && dest.length() > 0;
         } catch (Exception e) {
@@ -111,7 +117,9 @@ x20   /** mods 目录下的目标文件名 */
     public static boolean remove(GameRepository repository, Version version) {
         try {
             Path modsPath = repository.getModsDirectory(version.getId());
-            if (modsPath == null) return false;
+            if (modsPath == null) {
+                return false;
+            }
             File dest = new File(modsPath.toFile(), BRIDGE_JAR_NAME);
             return !dest.exists() || dest.delete();
         } catch (Exception e) {

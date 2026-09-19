@@ -11,8 +11,16 @@ import java.util.Set;
  *
  * 将游戏状态转换为 LLM Prompt，获取动作列表，并通过 GameApiClient 执行。
  * 支持视觉模式 (截图+多模态LLM) 和记忆系统。
+ *
+ * 扩展：ActionSink 可替换动作执行层（自控模式→玩家动作；
+ * 假人模式→FakePlayerClient 驱动假人）。
  */
 public class DecisionEngine {
+
+    /** 动作执行接口（可替换执行层） */
+    public interface ActionSink {
+        void execute(String action, Map<String, Object> params) throws Exception;
+    }
 
     private final GameApiClient gameApi;
     private final LlmClient llmClient;
@@ -27,6 +35,10 @@ public class DecisionEngine {
     // 视觉 + 记忆
     private final MemoryStore memory = new MemoryStore();
     private boolean visualMode = false;
+
+    // 可自定义执行层与系统提示词
+    private ActionSink actionSink = null;
+    private String systemPromptOverride = null;
 
     public DecisionEngine(GameApiClient gameApi, LlmClient llmClient) {
         this.gameApi = gameApi;
@@ -62,12 +74,21 @@ public class DecisionEngine {
     }
 
     /**
-     * 执行一次决策循环:
-     * 1. 收集游戏状态 (+ 截图 if 视觉模式)
-     * 2. 构建 Prompt (含记忆)
-     * 3. 调用 LLM 获取动作
-     * 4. 执行动作
-     * 5. 存储记忆
+     * 替换动作执行层（如：假人模式下发到 FakePlayerClient）
+     */
+    public void setActionSink(ActionSink sink) {
+        this.actionSink = sink;
+    }
+
+    /**
+     * 覆盖系统提示词（如：假人模式使用 goto/mine/attack 动作集）
+     */
+    public void setSystemPromptOverride(String prompt) {
+        this.systemPromptOverride = prompt;
+    }
+
+    /**
+     * 执行一次决策循环。
      */
     public DecisionResult runDecisionCycle() {
         cycleCount++;
@@ -120,7 +141,7 @@ public class DecisionEngine {
                 return new Skip("LLM returned no actions");
             }
 
-            // 4. 执行动作
+            // 4. 执行动作（支持自定义执行层）
             List<String> executed = new ArrayList<>();
             int limit = Math.min(actions.size(), MAX_ACTIONS_PER_CYCLE);
             for (int i = 0; i < limit; i++) {
@@ -131,7 +152,11 @@ public class DecisionEngine {
                 }
                 String actionName = actionNameObj.toString();
                 try {
-                    gameApi.executeAction(actionName, action);
+                    if (actionSink != null) {
+                        actionSink.execute(actionName, action);
+                    } else {
+                        gameApi.executeAction(actionName, action);
+                    }
                     executed.add(actionName);
                 } catch (Exception e) {
                     lastError = "Failed to execute " + actionName + ": " + e.getMessage();
@@ -158,9 +183,12 @@ public class DecisionEngine {
     }
 
     /**
-     * 构建系统提示词
+     * 构建系统提示词（可被覆盖）
      */
     private String buildSystemPrompt() {
+        if (systemPromptOverride != null) {
+            return systemPromptOverride;
+        }
         return "You are an AI playing Minecraft. Your goal is to complete the current task.\n\n"
                 + "Available actions:\n"
                 + "- move: {direction: forward/back/left/right, duration: ticks}\n"

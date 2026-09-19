@@ -1,0 +1,86 @@
+name: Build AI Bridge Mod
+
+# 从 AI-Minecraft-Launcher 仓库拉取 AiBridgeMod 源码，用 Gradle 9.5 + JDK 21 构建，
+# 构建产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar，
+# 使 AiBridgeInstaller 能在游戏启动时自动注入。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/build-ai-bridge.yml'
+
+jobs:
+  build-mod:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout FCL fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Clone AI-Minecraft-Launcher (mod source)
+        run: |
+          git clone --depth 1 https://github.com/xdd2024030565-spec/AI-Minecraft-Launcher.git aimc-src
+          ls -la aimc-src | head -50
+
+      - name: Setup Gradle 9.5
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gradle-9.5-bin.zip" "https://services.gradle.org/distributions/gradle-9.5-bin.zip"
+          unzip -q "$RUNNER_TEMP/gradle-9.5-bin.zip" -d "$HOME"
+          "$HOME/gradle-9.5/bin/gradle" --version
+          echo "$HOME/gradle-9.5/bin" >> "$GITHUB_PATH"
+
+      - name: Build AI Bridge Mod
+        working-directory: aimc-src
+        run: |
+          set -o pipefail
+          gradle -PbuildFabricMod=true :AiBridgeMod:build --no-daemon 2>&1 | tee ../ai-bridge-build.log
+
+      - name: Locate built jar
+        id: locate
+        run: |
+          JAR=$(find aimc-src/AiBridgeMod/build/libs -name "*.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -n 1)
+          if [ -z "$JAR" ]; then
+            echo "未找到构建产物，目录内容："
+            ls -la aimc-src/AiBridgeMod/build/libs || true
+            exit 1
+          fi
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+          echo "找到产物: $JAR"
+
+      - name: Copy jar into FCL assets
+        run: |
+          mkdir -p FCL/src/main/assets/ai
+          cp "${{ steps.locate.outputs.jar }}" FCL/src/main/assets/ai/ai-bridge.jar
+          ls -la FCL/src/main/assets/ai/
+
+      - name: Commit and push jar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add FCL/src/main/assets/ai/ai-bridge.jar
+          if git diff --cached --quiet; then
+            echo "jar 无变化，跳过提交"
+          else
+            git commit -m "chore: update ai-bridge.jar (auto-built)"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-bridge-build-log
+          path: ai-bridge-build.log

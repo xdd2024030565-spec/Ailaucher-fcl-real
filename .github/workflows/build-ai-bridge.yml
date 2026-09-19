@@ -1,12 +1,13 @@
 name: Build AI Bridge Mod
 
-# v4: 修复依赖仓库配置 + 失败日志自动入库
+# v5: 修复 Mod 构建脚本（processResources/expand）后重跑
+# 注意：Mod 源码仓库已改名为 AI-Minecraft-Launcher-deprecated（原 AI-Minecraft-Launcher）
 # 流程：
-# 1. 从 AI-Minecraft-Launcher 仓库拉取 Mod 源码；
-# 2. 转为独立单模块项目（settings 含插件仓库 + 依赖仓库）；
-# 3. Gradle 9.7.1 + JDK 21 构建（fabric-loom 1.17.x 要求 9.5+，实测验证 9.7.1 存在）；
-# 4. 产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar；
-# 5. 失败时：构建日志自动提交到 .ci-logs/ 并上传 artifact（便于快速诊断）。
+# 1. 克隆 Mod 源码；
+# 2. 转为独立单模块项目；
+# 3. Gradle 9.7.1 + JDK 21 构建；
+# 4. 产物提交到 FCL/src/main/assets/ai/ai-bridge.jar；
+# 5. 失败时日志自动入库 .ci-logs/。
 
 on:
   workflow_dispatch:
@@ -22,7 +23,7 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout FCL fork
+      - name: Checkout fork
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -34,9 +35,9 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Clone AI-Minecraft-Launcher (mod source)
+      - name: Clone AI Bridge Mod source
         run: |
-          git clone --depth 1 https://github.com/xdd2024030565-spec/AI-Minecraft-Launcher.git aimc-src
+          git clone --depth 1 https://github.com/xdd2024030565-spec/AI-Minecraft-Launcher-deprecated.git aimc-src
           ls -la aimc-src/AiBridgeMod
 
       - name: Prepare standalone mod project

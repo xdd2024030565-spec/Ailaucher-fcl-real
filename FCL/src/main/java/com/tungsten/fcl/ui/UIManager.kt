@@ -8,6 +8,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.mio.util.disableMouseWheelScroll
 import com.tungsten.fcl.R
 import com.tungsten.fcl.ui.account.AccountUI
+import com.tungsten.fcl.ui.ai.AiUI
 import com.tungsten.fcl.ui.controller.ControllerUI
 import com.tungsten.fcl.ui.download.DownloadUI
 import com.tungsten.fcl.ui.main.MainUI
@@ -19,11 +20,13 @@ import com.tungsten.fcllibrary.component.ui.FCLBaseUI
 import com.tungsten.fcllibrary.component.ui.FCLCommonUI
 
 /**
- * 主界面 UI 管理器：用 ViewPager2 承载 8 个主 UI 页面。
+ * 主界面 UI 管理器：用 ViewPager2 承载 9 个主 UI 页面。
  *
  * UI 实例随 ViewPager 页面生命周期创建/销毁，不保留状态：
  * 页面被 ViewPager 回收（超出 offscreenPageLimit）时销毁对应 UI 实例，
  * 下次进入时全新创建。
+ *
+ * 第 9 页（index 8）为 AI Minecraft Launcher 集成层的 AI 控制器页面。
  */
 class UIManager(val context: Context, val pager: ViewPager2) {
     companion object {
@@ -32,7 +35,7 @@ class UIManager(val context: Context, val pager: ViewPager2) {
     }
 
     /** 页面位置 → UI 实例注册表，页面被回收时销毁并清空对应位 */
-    private val uiRegistry = arrayOfNulls<FCLCommonUI>(8)
+    private val uiRegistry = arrayOfNulls<FCLCommonUI>(9)
 
     /** 页面位置 → UI 工厂 */
     private val factories: List<() -> FCLCommonUI> = listOf(
@@ -43,7 +46,8 @@ class UIManager(val context: Context, val pager: ViewPager2) {
         { MultiplayerUI(context, R.layout.ui_multiplayer) },
         { SettingUI(context, R.layout.ui_setting) },
         { AccountUI(context, R.layout.ui_account) },
-        { VersionUI(context, R.layout.ui_version) }
+        { VersionUI(context, R.layout.ui_version) },
+        { AiUI(context, R.layout.ui_ai) }
     )
 
     var currentUI: FCLBaseUI? = null
@@ -83,6 +87,7 @@ class UIManager(val context: Context, val pager: ViewPager2) {
     val settingUI: SettingUI get() = getUI(5) as SettingUI
     val accountUI: AccountUI get() = getUI(6) as AccountUI
     val versionUI: VersionUI get() = getUI(7) as VersionUI
+    val aiUI: AiUI get() = getUI(8) as AiUI
 
     fun init() {
         instance = this
@@ -155,7 +160,7 @@ class UIManager(val context: Context, val pager: ViewPager2) {
             var boundPosition: Int = 0
         }
 
-        override fun getItemCount(): Int = 8
+        override fun getItemCount(): Int = 9
 
         override fun getItemViewType(position: Int): Int = position
 

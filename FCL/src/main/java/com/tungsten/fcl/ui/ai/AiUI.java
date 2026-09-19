@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.Toast;
 
@@ -26,10 +28,12 @@ import java.util.logging.Level;
 /**
  * AI 控制器页面 —— AI Minecraft Launcher 集成层
  *
- * 配置 LLM / 任务 / 桥接参数，启停 AI 控制器，安装 AI Bridge Mod。
- * 作为 FCL 主界面的第 9 个页面接入 UIManager。
+ * 三模式切换（自控 / 本地假人 / 远程假人）、LLM 配置、
+ * 假人设置、对话开关、启停控制器。
  */
 public class AiUI extends FCLCommonUI implements View.OnClickListener {
+
+    private static final String[] MODE_NAMES = {"自控模式", "本地假人", "远程假人"};
 
     private EditText apiKeyInput;
     private EditText baseUrlInput;
@@ -37,9 +41,14 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
     private EditText taskInput;
     private EditText portInput;
     private EditText cycleInput;
+    private EditText fakeNameInput;
+    private EditText altPortInput;
+    private EditText dialogueTriggerInput;
     private Switch autoBridgeSwitch;
     private Switch visualSwitch;
     private Switch memorySwitch;
+    private Switch dialogueSwitch;
+    private Spinner modeSpinner;
     private FCLButton saveButton;
     private FCLButton installBridgeButton;
     private FCLButton startButton;
@@ -60,14 +69,24 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
         taskInput = findViewById(R.id.et_task);
         portInput = findViewById(R.id.et_port);
         cycleInput = findViewById(R.id.et_cycle);
+        fakeNameInput = findViewById(R.id.et_fake_name);
+        altPortInput = findViewById(R.id.et_alt_port);
+        dialogueTriggerInput = findViewById(R.id.et_dialogue_trigger);
         autoBridgeSwitch = findViewById(R.id.sw_auto_bridge);
         visualSwitch = findViewById(R.id.sw_visual);
         memorySwitch = findViewById(R.id.sw_memory);
+        dialogueSwitch = findViewById(R.id.sw_dialogue);
+        modeSpinner = findViewById(R.id.sp_mode);
         saveButton = findViewById(R.id.btn_save);
         installBridgeButton = findViewById(R.id.btn_install_bridge);
         startButton = findViewById(R.id.btn_start);
         stopButton = findViewById(R.id.btn_stop);
         statusView = findViewById(R.id.tv_ai_status);
+
+        ArrayAdapter<String> modeAdapter = new ArrayAdapter<>(getContext(),
+                android.R.layout.simple_spinner_item, MODE_NAMES);
+        modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        modeSpinner.setAdapter(modeAdapter);
 
         saveButton.setOnClickListener(this);
         installBridgeButton.setOnClickListener(this);
@@ -86,15 +105,20 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
 
     private void loadConfig() {
         AiConfig config = AiConfig.getInstance(getContext());
+        modeSpinner.setSelection(config.getMode());
         apiKeyInput.setText(config.getApiKey());
         baseUrlInput.setText(config.getBaseUrl());
         modelInput.setText(config.getModel());
         taskInput.setText(config.getTask());
         portInput.setText(String.valueOf(config.getBridgePort()));
         cycleInput.setText(String.valueOf(config.getCycleIntervalMs()));
+        fakeNameInput.setText(config.getFakePlayerName());
+        altPortInput.setText(String.valueOf(config.getAltPort()));
+        dialogueTriggerInput.setText(config.getDialogueTrigger());
         autoBridgeSwitch.setChecked(config.isAutoInstallBridge());
         visualSwitch.setChecked(config.isVisualMode());
         memorySwitch.setChecked(config.isMemoryEnabled());
+        dialogueSwitch.setChecked(config.isDialogueEnabled());
     }
 
     @Override
@@ -112,15 +136,20 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
 
     private void saveConfig() {
         AiConfig config = AiConfig.getInstance(getContext());
+        config.setMode(modeSpinner.getSelectedItemPosition());
         config.setApiKey(apiKeyInput.getText().toString());
         config.setBaseUrl(baseUrlInput.getText().toString());
         config.setModel(modelInput.getText().toString());
         config.setTask(taskInput.getText().toString());
         config.setBridgePort(parseInt(portInput.getText().toString(), 25580));
         config.setCycleIntervalMs(parseInt(cycleInput.getText().toString(), 3000));
+        config.setFakePlayerName(fakeNameInput.getText().toString());
+        config.setAltPort(parseInt(altPortInput.getText().toString(), 25581));
+        config.setDialogueTrigger(dialogueTriggerInput.getText().toString());
         config.setAutoInstallBridge(autoBridgeSwitch.isChecked());
         config.setVisualMode(visualSwitch.isChecked());
         config.setMemoryEnabled(memorySwitch.isChecked());
+        config.setDialogueEnabled(dialogueSwitch.isChecked());
         Toast.makeText(getContext(), "AI 配置已保存", Toast.LENGTH_SHORT).show();
     }
 
@@ -186,8 +215,15 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
     }
 
     private void updateStatus() {
-        if (statusView != null) {
-            statusView.setText(AiControllerService.running ? "AI 控制器：运行中" : "AI 控制器：已停止");
+        if (statusView == null) {
+            return;
         }
+        StringBuilder sb = new StringBuilder();
+        sb.append(AiControllerService.running ? "AI 控制器：运行中" : "AI 控制器：已停止");
+        String decision = AiControllerService.lastDecision;
+        if (decision != null && !decision.isEmpty()) {
+            sb.append("\n").append(decision);
+        }
+        statusView.setText(sb.toString());
     }
 }

@@ -32,6 +32,8 @@ tasks.register<Checkstyle>("checkstyle") {
 }
 
 android {
+    // 注意：namespace 保持 com.tungsten.fcl 不变（内部代码包名不迁移，避免大范围重构）；
+    // 安装身份由 applicationId 决定，已改为 com.aimc.ailauncher，与 FCL 官方版互不冲突。
     namespace = "com.tungsten.fcl"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
@@ -67,7 +69,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.tungsten.fcl"
+        // Ailauncher 独立包名（与 FCL 官方版共存不冲突）
+        applicationId = "com.aimc.ailauncher"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1333
@@ -95,13 +98,15 @@ android {
             initWith(getByName("debug"))
             applicationIdSuffix = ".debug"
             signingConfig = signingConfigs.getByName("FCLDebugKey")
-            // 与 FileProvider authority（${applicationId}.provider）保持一致（原 FCLLibrary 模块的 resValue）
-            resValue("string", "file_browser_provider", "com.tungsten.fcl.debug.provider")
+            // 与 FileProvider authority（${applicationId}.provider）保持一致：applicationId = com.aimc.ailauncher.debug
+            resValue("string", "file_browser_provider", "com.aimc.ailauncher.debug.provider")
         }
         configureEach {
             resValue("string", "app_version", defaultConfig.versionName.toString())
             resValue("string", "curse_api_key", curseApiKey.toString())
             resValue("string", "oauth_api_key", oauthApiKey.toString())
+            // 应用显示名（覆盖 strings.xml 中的 app_name，显示为 Ailauncher）
+            resValue("string", "app_name", "Ailauncher")
         }
     }
 
@@ -180,7 +185,7 @@ androidComponents {
             if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
                 (output.getFilter(ABI)?.identifier ?: "all").let { abi ->
                     output.outputFileName =
-                        "FCL-${variant.buildType}-${project.android.defaultConfig.versionName}-${abi}.apk"
+                        "Ailauncher-${variant.buildType}-${project.android.defaultConfig.versionName}-${abi}.apk"
                 }
             }
         }

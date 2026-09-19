@@ -1,5 +1,6 @@
 package com.tungsten.fcl.ui.ai;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -10,10 +11,12 @@ import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import com.tungsten.fcl.FCLApp;
 import com.tungsten.fcl.R;
 import com.tungsten.fcl.ai.AiBridgeInstaller;
 import com.tungsten.fcl.ai.AiConfig;
 import com.tungsten.fcl.ai.AiControllerService;
+import com.tungsten.fcl.ai.AltInstanceManager;
 import com.tungsten.fcl.setting.Profile;
 import com.tungsten.fcl.setting.Profiles;
 import com.tungsten.fclcore.game.GameRepository;
@@ -29,7 +32,7 @@ import java.util.logging.Level;
  * AI 控制器页面 —— AI Minecraft Launcher 集成层
  *
  * 三模式切换（自控 / 本地假人 / 远程假人）、LLM 配置、
- * 假人设置、对话开关、启停控制器。
+ * 假人设置、对话开关、启停控制器、启动第二实例。
  */
 public class AiUI extends FCLCommonUI implements View.OnClickListener {
 
@@ -53,6 +56,7 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
     private FCLButton installBridgeButton;
     private FCLButton startButton;
     private FCLButton stopButton;
+    private FCLButton launchAltButton;
     private FCLTextView statusView;
 
     public AiUI(Context context, int id) {
@@ -81,6 +85,7 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
         installBridgeButton = findViewById(R.id.btn_install_bridge);
         startButton = findViewById(R.id.btn_start);
         stopButton = findViewById(R.id.btn_stop);
+        launchAltButton = findViewById(R.id.btn_launch_alt);
         statusView = findViewById(R.id.tv_ai_status);
 
         ArrayAdapter<String> modeAdapter = new ArrayAdapter<>(getContext(),
@@ -92,6 +97,7 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
         installBridgeButton.setOnClickListener(this);
         startButton.setOnClickListener(this);
         stopButton.setOnClickListener(this);
+        launchAltButton.setOnClickListener(this);
 
         loadConfig();
         updateStatus();
@@ -131,6 +137,8 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
             startController();
         } else if (view == stopButton) {
             stopController();
+        } else if (view == launchAltButton) {
+            launchAltInstance();
         }
     }
 
@@ -182,6 +190,21 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
             Logging.LOG.log(Level.WARNING, "安装 AI Bridge Mod 失败", e);
             Toast.makeText(context, "安装失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * 启动 AI 第二实例（远程假人：小号）
+     */
+    private void launchAltInstance() {
+        Context context = getContext();
+        Activity activity = context instanceof Activity ? (Activity) context : FCLApp.getActivity();
+        if (activity == null) {
+            Toast.makeText(context, "无法获取 Activity", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // 先保存配置（确保端口等参数生效）
+        saveConfig();
+        AltInstanceManager.launchAltInstance(activity);
     }
 
     private void startController() {

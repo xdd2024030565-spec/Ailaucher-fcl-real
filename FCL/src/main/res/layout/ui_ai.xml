@@ -339,6 +339,14 @@
                 app:ripple="true" />
         </LinearLayout>
 
+        <com.tungsten.fcllibrary.component.view.FCLButton
+            android:id="@+id/btn_launch_alt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="启动 AI 第二实例（小号 / 远程假人）"
+            app:ripple="true" />
+
         <com.tungsten.fcllibrary.component.view.FCLTextView
             android:id="@+id/tv_ai_status"
             android:layout_width="match_parent"

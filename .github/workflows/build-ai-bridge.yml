@@ -1,11 +1,12 @@
 name: Build AI Bridge Mod
 
-# v3: 修复 Gradle 版本（9.5 官方不存在，改用已验证存在的 9.7.1）- 独立单模块构建
+# v4: 修复依赖仓库配置 + 失败日志自动入库
 # 流程：
 # 1. 从 AI-Minecraft-Launcher 仓库拉取 Mod 源码；
-# 2. 转为独立单模块项目（自定义 settings.gradle.kts）；
-# 3. Gradle 9.7.1 + JDK 21 构建（fabric-loom 1.17.x 要求 9.5+）；
-# 4. 产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar。
+# 2. 转为独立单模块项目（settings 含插件仓库 + 依赖仓库）；
+# 3. Gradle 9.7.1 + JDK 21 构建（fabric-loom 1.17.x 要求 9.5+，实测验证 9.7.1 存在）；
+# 4. 产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar；
+# 5. 失败时：构建日志自动提交到 .ci-logs/ 并上传 artifact（便于快速诊断）。
 
 on:
   workflow_dispatch:
@@ -43,7 +44,7 @@ jobs:
           mkdir -p mod-build
           cp -r aimc-src/AiBridgeMod/. mod-build/
           rm -rf mod-build/build mod-build/.gradle
-          # 独立项目 settings（不继承主仓库的 AGP/Kotlin 插件链）
+          # 独立项目 settings：插件仓库 + 依赖仓库（不继承主仓库插件链；避免 FAIL_ON_PROJECT_REPOS 冲突）
           cat > mod-build/settings.gradle.kts <<'EOF'
           pluginManagement {
               repositories {
@@ -52,10 +53,19 @@ jobs:
                   mavenCentral()
               }
           }
+          dependencyResolutionManagement {
+              repositories {
+                  maven("https://maven.fabricmc.net") { name = "Fabric" }
+                  mavenCentral()
+                  google()
+              }
+          }
           rootProject.name = "ai-bridge"
           EOF
           echo "--- mod-build 内容 ---"
           ls -la mod-build
+          echo "--- build.gradle.kts 预览 ---"
+          head -40 mod-build/build.gradle.kts
 
       - name: Setup Gradle 9.7.1
         run: |
@@ -99,6 +109,21 @@ jobs:
             git commit -m "chore: update ai-bridge.jar (auto-built)"
             git push origin HEAD:${{ github.ref_name }}
           fi
+
+      - name: Commit build log on failure
+        if: failure()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p .ci-logs
+          if [ -f ai-bridge-build.log ]; then
+            cp ai-bridge-build.log .ci-logs/ai-bridge-build.log
+          else
+            echo "(no log captured)" > .ci-logs/ai-bridge-build.log
+          fi
+          git add -f .ci-logs/ai-bridge-build.log
+          git commit -m "chore: AI Bridge build log [skip ci]" || true
+          git push origin HEAD:${{ github.ref_name }} || true
 
       - name: Upload build log on failure
         if: failure()

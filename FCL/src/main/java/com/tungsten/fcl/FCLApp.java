@@ -9,6 +9,9 @@ import android.os.StrictMode;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.tungsten.fcl.activity.MainActivity;
+import com.tungsten.fcl.ai.AiMenuHook;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.ref.WeakReference;
@@ -67,6 +70,10 @@ public class FCLApp extends Application implements Application.ActivityLifecycle
     @Override
     public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle bundle) {
         currentActivity = new WeakReference<>(activity);
+        // AI Minecraft Launcher 集成层：主界面创建后挂载 AI 菜单的点击逻辑
+        if (activity instanceof MainActivity) {
+            AiMenuHook.attach((MainActivity) activity);
+        }
     }
 
     @Override

@@ -79,11 +79,14 @@ public class FCLApp extends Application implements Application.ActivityLifecycle
     @Override
     public void onActivityStarted(@NonNull Activity activity) {
         currentActivity = new WeakReference<>(activity);
+        // AI 菜单挂载（幂等）：多时机冗余，避免单点遗漏
+        AiMenuHook.attachIfMain(activity);
     }
 
     @Override
     public void onActivityResumed(@NonNull Activity activity) {
-
+        // AI 菜单挂载（幂等）：Activity 完全可见时确保已挂载
+        AiMenuHook.attachIfMain(activity);
     }
 
     @Override

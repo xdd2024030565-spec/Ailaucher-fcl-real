@@ -1,8 +1,10 @@
 name: Build AI Bridge Mod
 
-# 从 AI-Minecraft-Launcher 仓库拉取 AiBridgeMod 源码，用 Gradle 9.5 + JDK 21 构建，
-# 构建产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar，
-# 使 AiBridgeInstaller 能在游戏启动时自动注入。
+# 独立构建 AiBridgeMod（Minecraft 1.20.1 Fabric Mod）：
+# 1. 从 AI-Minecraft-Launcher 仓库拉取 Mod 源码；
+# 2. 将其转换为独立单模块项目（避免与主仓库 AGP 8.2 / Kotlin 1.9 的 Gradle 版本冲突）；
+# 3. 用 Gradle 9.5 + JDK 21 构建（fabric-loom 1.17.x 要求）；
+# 4. 产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar。
 
 on:
   workflow_dispatch:
@@ -33,7 +35,26 @@ jobs:
       - name: Clone AI-Minecraft-Launcher (mod source)
         run: |
           git clone --depth 1 https://github.com/xdd2024030565-spec/AI-Minecraft-Launcher.git aimc-src
-          ls -la aimc-src | head -50
+          ls -la aimc-src/AiBridgeMod
+
+      - name: Prepare standalone mod project
+        run: |
+          mkdir -p mod-build
+          cp -r aimc-src/AiBridgeMod/. mod-build/
+          rm -rf mod-build/build mod-build/.gradle
+          # 独立项目 settings（不继承主仓库的 AGP/Kotlin 插件链）
+          cat > mod-build/settings.gradle.kts <<'EOF'
+          pluginManagement {
+              repositories {
+                  maven("https://maven.fabricmc.net") { name = "Fabric" }
+                  gradlePluginPortal()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "ai-bridge"
+          EOF
+          echo "--- mod-build 内容 ---"
+          ls -la mod-build
 
       - name: Setup Gradle 9.5
         run: |
@@ -43,18 +64,18 @@ jobs:
           echo "$HOME/gradle-9.5/bin" >> "$GITHUB_PATH"
 
       - name: Build AI Bridge Mod
-        working-directory: aimc-src
+        working-directory: mod-build
         run: |
           set -o pipefail
-          gradle -PbuildFabricMod=true :AiBridgeMod:build --no-daemon 2>&1 | tee ../ai-bridge-build.log
+          gradle build --no-daemon --stacktrace 2>&1 | tee ../ai-bridge-build.log
 
       - name: Locate built jar
         id: locate
         run: |
-          JAR=$(find aimc-src/AiBridgeMod/build/libs -name "*.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -n 1)
+          JAR=$(find mod-build/build/libs -name "*.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -n 1)
           if [ -z "$JAR" ]; then
             echo "未找到构建产物，目录内容："
-            ls -la aimc-src/AiBridgeMod/build/libs || true
+            ls -la mod-build/build/libs || true
             exit 1
           fi
           echo "jar=$JAR" >> "$GITHUB_OUTPUT"

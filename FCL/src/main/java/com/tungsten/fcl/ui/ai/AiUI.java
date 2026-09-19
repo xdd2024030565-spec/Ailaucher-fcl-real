@@ -21,6 +21,7 @@ import com.tungsten.fcl.setting.Profile;
 import com.tungsten.fcl.setting.Profiles;
 import com.tungsten.fclcore.game.GameRepository;
 import com.tungsten.fclcore.game.Version;
+import com.tungsten.fclcore.task.Task;
 import com.tungsten.fclcore.util.Logging;
 import com.tungsten.fcllibrary.component.ui.FCLCommonUI;
 import com.tungsten.fcllibrary.component.view.FCLButton;
@@ -107,6 +108,11 @@ public class AiUI extends FCLCommonUI implements View.OnClickListener {
     public void onResume() {
         super.onResume();
         updateStatus();
+    }
+
+    @Override
+    public Task<?> refresh(Object... param) {
+        return null;
     }
 
     private void loadConfig() {

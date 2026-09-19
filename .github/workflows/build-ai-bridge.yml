@@ -1,10 +1,10 @@
 name: Build AI Bridge Mod
 
-# v2: 独立单模块构建（修复 Gradle 9.5 与主仓库 AGP 8.2/Kotlin 1.9 的插件链冲突）
+# v3: 修复 Gradle 版本（9.5 官方不存在，改用已验证存在的 9.7.1）- 独立单模块构建
 # 流程：
 # 1. 从 AI-Minecraft-Launcher 仓库拉取 Mod 源码；
 # 2. 转为独立单模块项目（自定义 settings.gradle.kts）；
-# 3. Gradle 9.5 + JDK 21 构建（fabric-loom 1.17.x 要求）；
+# 3. Gradle 9.7.1 + JDK 21 构建（fabric-loom 1.17.x 要求 9.5+）；
 # 4. 产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar。
 
 on:
@@ -57,12 +57,12 @@ jobs:
           echo "--- mod-build 内容 ---"
           ls -la mod-build
 
-      - name: Setup Gradle 9.5
+      - name: Setup Gradle 9.7.1
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/gradle-9.5-bin.zip" "https://services.gradle.org/distributions/gradle-9.5-bin.zip"
-          unzip -q "$RUNNER_TEMP/gradle-9.5-bin.zip" -d "$HOME"
-          "$HOME/gradle-9.5/bin/gradle" --version
-          echo "$HOME/gradle-9.5/bin" >> "$GITHUB_PATH"
+          curl -fsSL -o "$RUNNER_TEMP/gradle-9.7.1-bin.zip" "https://services.gradle.org/distributions/gradle-9.7.1-bin.zip"
+          unzip -q "$RUNNER_TEMP/gradle-9.7.1-bin.zip" -d "$HOME"
+          "$HOME/gradle-9.7.1/bin/gradle" --version
+          echo "$HOME/gradle-9.7.1/bin" >> "$GITHUB_PATH"
 
       - name: Build AI Bridge Mod
         working-directory: mod-build

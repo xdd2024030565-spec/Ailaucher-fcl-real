@@ -1,9 +1,10 @@
 name: Build AI Bridge Mod
 
-# 独立构建 AiBridgeMod（Minecraft 1.20.1 Fabric Mod）：
+# v2: 独立单模块构建（修复 Gradle 9.5 与主仓库 AGP 8.2/Kotlin 1.9 的插件链冲突）
+# 流程：
 # 1. 从 AI-Minecraft-Launcher 仓库拉取 Mod 源码；
-# 2. 将其转换为独立单模块项目（避免与主仓库 AGP 8.2 / Kotlin 1.9 的 Gradle 版本冲突）；
-# 3. 用 Gradle 9.5 + JDK 21 构建（fabric-loom 1.17.x 要求）；
+# 2. 转为独立单模块项目（自定义 settings.gradle.kts）；
+# 3. Gradle 9.5 + JDK 21 构建（fabric-loom 1.17.x 要求）；
 # 4. 产物自动提交到 FCL/src/main/assets/ai/ai-bridge.jar。
 
 on:

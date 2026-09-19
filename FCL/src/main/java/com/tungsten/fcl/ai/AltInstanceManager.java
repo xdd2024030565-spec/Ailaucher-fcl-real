@@ -12,6 +12,7 @@ import com.tungsten.fcl.setting.Profile;
 import com.tungsten.fcl.setting.Profiles;
 import com.tungsten.fcl.setting.VersionSetting;
 import com.tungsten.fclcore.auth.Account;
+import com.tungsten.fclcore.game.Version;
 import com.tungsten.fclcore.util.Logging;
 
 import java.io.File;
@@ -28,9 +29,10 @@ import java.util.logging.Level;
  *
  * 实现原理（不动 FCL 启动核心）：
  * 1. 自动准备版本副本（{版本}-AiAlt），开启版本隔离；
- * 2. 在副本运行目录写入端口文件（ai_bridge_port.txt）；
- * 3. Bridge Mod 启动时从端口文件读取专属端口（默认第二实例 25581）；
- * 4. 用 LauncherHelper 以小号账号启动副本。
+ * 2. 确保副本也注入 AI Bridge Mod；
+ * 3. 在副本运行目录写入端口文件（ai_bridge_port.txt）；
+ * 4. Bridge Mod 启动时从端口文件读取专属端口（默认第二实例 25581）；
+ * 5. 用 LauncherHelper 以小号账号启动副本。
  */
 public final class AltInstanceManager {
 
@@ -79,7 +81,11 @@ public final class AltInstanceManager {
                     repository.refreshVersions();
                 }
 
-                // 3.2 副本设置：确保运行目录隔离
+                // 3.2 确保副本版本也注入 Bridge Mod（否则小号无法被 AI 控制）
+                Version altVersion = repository.getVersion(altVersionId);
+                AiBridgeInstaller.install(activity, repository, altVersion);
+
+                // 3.3 副本设置：确保运行目录隔离
                 VersionSetting setting = profile.getVersionSetting(altVersionId);
                 VersionSetting global = profile.getGlobalVersionSetting();
                 if (global == null || !global.isIsolateGameDir()) {
@@ -87,13 +93,13 @@ public final class AltInstanceManager {
                     setting.setIsolateGameDir(true);
                 }
 
-                // 3.3 写入端口文件
+                // 3.4 写入端口文件
                 File runDir = repository.getRunDirectory(altVersionId);
                 runDir.mkdirs();
                 File portFile = new File(runDir, AiBridgeInstaller.PORT_FILE_NAME);
                 Files.write(portFile.toPath(), String.valueOf(altPort).getBytes(StandardCharsets.UTF_8));
 
-                // 3.4 UI 线程启动
+                // 3.5 UI 线程启动
                 activity.runOnUiThread(() -> {
                     try {
                         new LauncherHelper(activity, profile, alt, altVersionId).launch();
